@@ -1,12 +1,18 @@
 ﻿using Amazon.Kinesis;
 using Amazon.Kinesis.Model;
+using Amazon.Lambda.Core;
 using Newtonsoft.Json;
 using System.Text;
 using Utils;
 
 namespace KinesisProducerLambda
 {
-    public class KinesisProducerService
+    public interface IKinesisProducerService
+    {
+         Task SendEvents(int numberOfEvents);
+    }
+
+    public class KinesisProducerService: IKinesisProducerService
     {
         private readonly IAmazonKinesis _kinesisClient;
         private readonly string _streamName;
@@ -22,54 +28,77 @@ namespace KinesisProducerLambda
 
         public async Task SendEvents(int numberOfEvents)
         {
-            var events = GenerateEvents(numberOfEvents);
-            var putRecordsRequestsBatches = SplitEventsIntoBatches(events);
-            var putRecordsResponses = await Task.WhenAll(putRecordsRequestsBatches.Select(x => SendBatchToKinesis(x)));
+            PutRecordsResponse[] putRecordsResponses = Array.Empty<PutRecordsResponse>();
+            try
+            {
+                var events = GenerateEvents(numberOfEvents);
+                var putRecordsRequestsBatches = SplitEventsIntoBatches(events);
+                putRecordsResponses = await Task.WhenAll(putRecordsRequestsBatches.Select(x => SendBatchToKinesis(x)));
+            }
+            catch (Exception ex)
+            {
+                LambdaLogger.Log($"An unexpected error occured on SendEvents {ex.Message}");
+            }
+            
             CheckForFailedRecords(putRecordsResponses);
         }
 
-        private static List<Event> GenerateEvents(int numberOfEvents)
+        private static List<MyCustomEvent> GenerateEvents(int numberOfEvents)
         {
-            var events = new List<Event>();
+            var events = new List<MyCustomEvent>();
             for (int i = 0; i < numberOfEvents; i++)
             {
-                events.Add(new Event { Name = Guid.NewGuid().ToString() });
+                events.Add(new MyCustomEvent
+                {
+                    Id = Guid.NewGuid().ToString(),
+                    Timestamp = DateTime.UtcNow,
+                    Source = "ProducerLambda",
+                    Version = "1.0.0"
+                });
             }
 
             return events;
         }
 
-        private static List<List<PutRecordsRequestEntry>> SplitEventsIntoBatches(List<Event> events)
+        private static List<List<PutRecordsRequestEntry>> SplitEventsIntoBatches(List<MyCustomEvent> events)
         {
-            var recordsBatch = new List<List<PutRecordsRequestEntry>>();
             int currentBatchSizeBytes = 0;
+            var recordsBatch = new List<List<PutRecordsRequestEntry>>();
             var recordBatch = new List<PutRecordsRequestEntry>();
             foreach (var eventData in events)
             {
-                byte[] eventDataBytes = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(eventData));
-
-                int eventDataSizeBytes = eventDataBytes.Length;
-
-                // Check if adding the current event to the batch would exceed the maximum size or record limit
-                if (currentBatchSizeBytes + eventDataSizeBytes > maxBatchSizeBytes || recordsBatch.Count >= maxRecordsPerBatch)
+                try
                 {
-                    recordsBatch.Add(recordBatch);
+                    byte[] eventDataBytes = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(eventData));
 
-                    // Reset the batch and size for the next iteration
-                    recordBatch.Clear();
-                    currentBatchSizeBytes = 0;
-                }
+                    int eventDataSizeBytes = eventDataBytes.Length;
 
-                using (var memoryStream = new MemoryStream(eventDataBytes))
-                {
-                    recordBatch.Add(new PutRecordsRequestEntry
+                    // Check if adding the current event to the batch would exceed the maximum size or record limit
+                    if (currentBatchSizeBytes + eventDataSizeBytes > maxBatchSizeBytes || recordsBatch.Count >= maxRecordsPerBatch)
                     {
-                        Data = memoryStream,
-                        PartitionKey = Guid.NewGuid().ToString()
-                    });
+                        recordsBatch.Add(recordBatch);
 
-                    currentBatchSizeBytes += eventDataSizeBytes;
+                        // Reset the batch and size for the next iteration
+                        recordBatch.Clear();
+                        currentBatchSizeBytes = 0;
+                    }
+
+                    using (var memoryStream = new MemoryStream(eventDataBytes))
+                    {
+                        recordBatch.Add(new PutRecordsRequestEntry
+                        {
+                            Data = memoryStream,
+                            PartitionKey = Guid.NewGuid().ToString()
+                        });
+
+                        currentBatchSizeBytes += eventDataSizeBytes;
+                    }
                 }
+                catch(Exception ex)
+                {
+                    LambdaLogger.Log($"An unexpected error occured on SplitEventsIntoBatches for event {eventData.Id} {ex.Message}");
+                }
+                
             }
 
             return recordsBatch;
@@ -94,7 +123,7 @@ namespace KinesisProducerLambda
                 {
                     if (!string.IsNullOrEmpty(record.ErrorCode))
                     {
-                        Console.WriteLine($"Record failed to be sent: {record.ErrorCode}");
+                        LambdaLogger.Log($"Record failed to be sent: {record.ErrorCode}");
                     }
                 }
             }

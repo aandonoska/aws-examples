@@ -1,5 +1,4 @@
 using System.Text;
-using System.Text.Json.Serialization;
 using Amazon.Lambda.Core;
 using Amazon.Lambda.KinesisEvents;
 using Newtonsoft.Json;
@@ -17,16 +16,19 @@ public class Function
     {
         context.Logger.LogInformation($"Beginning to process {kinesisEvent.Records.Count} records...");
 
-        List<Event> events = new List<Event>();
+        List<MyCustomEvent> events = new List<MyCustomEvent>();
         foreach (var record in kinesisEvent.Records)
         {
             context.Logger.LogInformation($"Event ID: {record.EventId}");
             context.Logger.LogInformation($"Event Name: {record.EventName}");
 
             string recordData = GetRecordContents(record.Kinesis);
-            var evnt = JsonConvert.DeserializeObject<Event>(recordData);
-            events.Add(evnt);
-            //push to metrics
+            var evnt = JsonConvert.DeserializeObject<MyCustomEvent>(recordData);
+            if (evnt != null)
+            {
+                events.Add(evnt);
+            }
+            
             context.Logger.LogInformation($"Record Data:");
             context.Logger.LogInformation(recordData);
         }

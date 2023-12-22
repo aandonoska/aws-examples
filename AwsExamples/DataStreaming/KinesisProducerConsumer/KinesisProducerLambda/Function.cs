@@ -1,7 +1,5 @@
 using Amazon.Kinesis;
-using Amazon.Kinesis.Model;
 using Amazon.Lambda.Core;
-using Utils;
 
 // Assembly attribute to enable the Lambda function's JSON input to be converted into a .NET class.
 [assembly: LambdaSerializer(typeof(Amazon.Lambda.Serialization.SystemTextJson.DefaultLambdaJsonSerializer))]
@@ -10,11 +8,11 @@ namespace KinesisProducerLambda;
 
 public class Function
 {
-    private readonly IAmazonKinesis _amazonKinesis;
+    private readonly IKinesisProducerService _kinesisProducerService;
 
     public Function()
     {
-        _amazonKinesis = new AmazonKinesisClient();
+        _kinesisProducerService = new KinesisProducerService(new AmazonKinesisClient(), "<ToDO>");
     }
     
     /// <summary>
@@ -25,27 +23,13 @@ public class Function
     /// <returns></returns>
     public async Task FunctionHandler(int numberOfEvents, ILambdaContext context)
     {
-        List<Task<PutRecordResponse>> responseTasks = new List<Task<PutRecordResponse>>();
-        var eventsToSend = new List<Event>();
-        for(int i = 0; i < numberOfEvents; i++)
+        try
         {
-            eventsToSend.Add(new Event { Name = Guid.NewGuid().ToString() });
+            await _kinesisProducerService.SendEvents(numberOfEvents);
         }
-
-        var batchSize = eventsToSend.Count >500 ? 500 : numberOfEvents;
-        var loops = numberOfEvents / batchSize;
-        loops = Math.Max(1, loops);
-
-        var putRecords = new List<PutRecordRequest>();
-        var partitionKeyMin = 0;
-        for(int i=0; i < loops; i++)
+        catch (Exception ex)
         {
-            var putRecordBatch = new List<PutRecordsRequestEntry>();
-            for (int j = 0; j < batchSize; j++)
-            {
-                var index = *
-            }
-
+            LambdaLogger.Log($"An unexpected error occured {ex.Message}");
         }
 
     }
