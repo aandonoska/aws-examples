@@ -21,18 +21,17 @@ public class Function
         {
             try
             {
-                context.Logger.LogInformation($"Event ID: {record.EventId}");
-                context.Logger.LogInformation($"Event Name: {record.EventName}");
-
                 string recordData = GetRecordContents(record.Kinesis);
                 var evnt = JsonConvert.DeserializeObject<UpdateProfileEvent>(recordData);
                 if (evnt != null)
                 {
                     events.Add(evnt);
                 }
-
-                context.Logger.LogInformation($"Record Data:");
-                context.Logger.LogInformation(recordData);
+                if (Environment.GetEnvironmentVariable("LogEventContent") == true.ToString())
+                {
+                    context.Logger.LogInformation($"Record Data:");
+                    context.Logger.LogInformation(recordData);
+                }
             }
             catch (Exception ex)
             {
