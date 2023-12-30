@@ -15,7 +15,7 @@ namespace KinesisProducerLambda
     public class KinesisProducer: IKinesisProducer
     {
         private readonly IAmazonKinesis _kinesisClient;
-        private readonly string _streamName;
+        private readonly string? _streamName;
 
         private const int maxBatchSizeBytes = 5 * 1024 * 1024;
         private const int maxRecordsPerBatch = 500; 
@@ -76,12 +76,11 @@ namespace KinesisProducerLambda
 
                     int eventDataSizeBytes = eventDataBytes.Length;
 
-                    // Check if adding the current event to the batch would exceed the maximum size or record limit
-                    if (currentBatchSizeBytes + eventDataSizeBytes > maxBatchSizeBytes || recordsBatch.Count >= maxRecordsPerBatch)
+                    var isBatchRequestLimitReached = currentBatchSizeBytes + eventDataSizeBytes > maxBatchSizeBytes || recordsBatch.Count >= maxRecordsPerBatch;
+                    if (isBatchRequestLimitReached)
                     {
                         recordsBatch.Add(recordBatch);
 
-                        // Reset the batch and size for the next iteration
                         recordBatch.Clear();
                         currentBatchSizeBytes = 0;
                     }

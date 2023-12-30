@@ -16,6 +16,8 @@ public class Function
     {
         context.Logger.LogInformation($"Beginning to process {kinesisEvent.Records.Count} records...");
 
+        var shouldLogEvents = Environment.GetEnvironmentVariable("LogEventContent") == true.ToString();
+
         List<UpdateProfileEvent> events = new List<UpdateProfileEvent>();
         foreach (var record in kinesisEvent.Records)
         {
@@ -27,7 +29,7 @@ public class Function
                 {
                     events.Add(evnt);
                 }
-                if (Environment.GetEnvironmentVariable("LogEventContent") == true.ToString())
+                if (shouldLogEvents)
                 {
                     context.Logger.LogInformation($"Record Data:");
                     context.Logger.LogInformation(recordData);
