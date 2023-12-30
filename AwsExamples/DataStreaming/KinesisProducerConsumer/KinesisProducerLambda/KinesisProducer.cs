@@ -103,6 +103,11 @@ namespace KinesisProducerLambda
                 }  
             }
 
+            if (recordBatch.Any())
+            {
+                recordsBatch.Add(recordBatch);
+            }
+
             return recordsBatch;
         }
 
