@@ -16,21 +16,28 @@ public class Function
     {
         context.Logger.LogInformation($"Beginning to process {kinesisEvent.Records.Count} records...");
 
-        List<MyCustomEvent> events = new List<MyCustomEvent>();
+        List<UpdateProfileEvent> events = new List<UpdateProfileEvent>();
         foreach (var record in kinesisEvent.Records)
         {
-            context.Logger.LogInformation($"Event ID: {record.EventId}");
-            context.Logger.LogInformation($"Event Name: {record.EventName}");
-
-            string recordData = GetRecordContents(record.Kinesis);
-            var evnt = JsonConvert.DeserializeObject<MyCustomEvent>(recordData);
-            if (evnt != null)
+            try
             {
-                events.Add(evnt);
+                context.Logger.LogInformation($"Event ID: {record.EventId}");
+                context.Logger.LogInformation($"Event Name: {record.EventName}");
+
+                string recordData = GetRecordContents(record.Kinesis);
+                var evnt = JsonConvert.DeserializeObject<UpdateProfileEvent>(recordData);
+                if (evnt != null)
+                {
+                    events.Add(evnt);
+                }
+
+                context.Logger.LogInformation($"Record Data:");
+                context.Logger.LogInformation(recordData);
             }
-            
-            context.Logger.LogInformation($"Record Data:");
-            context.Logger.LogInformation(recordData);
+            catch (Exception ex)
+            {
+                context.Logger.LogError($"An error occured for event {record.EventId}: {ex}.");
+            }  
         }
 
         context.Logger.LogInformation("Stream processing complete.");

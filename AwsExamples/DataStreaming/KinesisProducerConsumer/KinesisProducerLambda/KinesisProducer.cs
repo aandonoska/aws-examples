@@ -7,23 +7,23 @@ using Utils;
 
 namespace KinesisProducerLambda
 {
-    public interface IKinesisProducerService
+    public interface IKinesisProducer
     {
          Task SendEvents(int numberOfEvents);
     }
 
-    public class KinesisProducerService: IKinesisProducerService
+    public class KinesisProducer: IKinesisProducer
     {
         private readonly IAmazonKinesis _kinesisClient;
         private readonly string _streamName;
 
-        private const int maxBatchSizeBytes = 1024 * 1024;
+        private const int maxBatchSizeBytes = 5 * 1024 * 1024;
         private const int maxRecordsPerBatch = 500; 
 
-        public KinesisProducerService(IAmazonKinesis amazonKinesis, string streamName)
+        public KinesisProducer(IAmazonKinesis amazonKinesis)
         {
             _kinesisClient = amazonKinesis;
-            _streamName = streamName;
+            _streamName = Environment.GetEnvironmentVariable("StreamName");
         }
 
         public async Task SendEvents(int numberOfEvents)
@@ -33,6 +33,7 @@ namespace KinesisProducerLambda
             {
                 var events = GenerateEvents(numberOfEvents);
                 var putRecordsRequestsBatches = SplitEventsIntoBatches(events);
+                    
                 putRecordsResponses = await Task.WhenAll(putRecordsRequestsBatches.Select(x => SendBatchToKinesis(x)));
             }
             catch (Exception ex)
@@ -43,24 +44,26 @@ namespace KinesisProducerLambda
             CheckForFailedRecords(putRecordsResponses);
         }
 
-        private static List<MyCustomEvent> GenerateEvents(int numberOfEvents)
+        private static List<UpdateProfileEvent> GenerateEvents(int numberOfEvents)
         {
-            var events = new List<MyCustomEvent>();
+            Random random = new();
+            var events = new List<UpdateProfileEvent>();
             for (int i = 0; i < numberOfEvents; i++)
             {
-                events.Add(new MyCustomEvent
+                events.Add(new UpdateProfileEvent
                 {
                     Id = Guid.NewGuid().ToString(),
                     Timestamp = DateTime.UtcNow,
-                    Source = "ProducerLambda",
-                    Version = "1.0.0"
+                    ProfileId = Guid.NewGuid().ToString(),
+                    UpdateType = "Username",
+                    NewValue = $"user{random.Next()}"
                 });
             }
 
             return events;
         }
 
-        private static List<List<PutRecordsRequestEntry>> SplitEventsIntoBatches(List<MyCustomEvent> events)
+        private static List<List<PutRecordsRequestEntry>> SplitEventsIntoBatches(List<UpdateProfileEvent> events)
         {
             int currentBatchSizeBytes = 0;
             var recordsBatch = new List<List<PutRecordsRequestEntry>>();
@@ -97,8 +100,7 @@ namespace KinesisProducerLambda
                 catch(Exception ex)
                 {
                     LambdaLogger.Log($"An unexpected error occured on SplitEventsIntoBatches for event {eventData.Id} {ex.Message}");
-                }
-                
+                }  
             }
 
             return recordsBatch;
@@ -123,7 +125,7 @@ namespace KinesisProducerLambda
                 {
                     if (!string.IsNullOrEmpty(record.ErrorCode))
                     {
-                        LambdaLogger.Log($"Record failed to be sent: {record.ErrorCode}");
+                        LambdaLogger.Log($"Record {record.SequenceNumber} failed to be sent: {record.ErrorCode} {record.ErrorMessage}");
                     }
                 }
             }

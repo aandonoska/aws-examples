@@ -8,11 +8,11 @@ namespace KinesisProducerLambda;
 
 public class Function
 {
-    private readonly IKinesisProducerService _kinesisProducerService;
+    private readonly IKinesisProducer _kinesisProducerService;
 
     public Function()
     {
-        _kinesisProducerService = new KinesisProducerService(new AmazonKinesisClient(), "<ToDO>");
+        _kinesisProducerService = new KinesisProducer(new AmazonKinesisClient());
     }
     
     /// <summary>
@@ -23,14 +23,14 @@ public class Function
     /// <returns></returns>
     public async Task FunctionHandler(int numberOfEvents, ILambdaContext context)
     {
+        context.Logger.LogInformation($"Invoked with number of events {numberOfEvents}");
         try
         {
             await _kinesisProducerService.SendEvents(numberOfEvents);
         }
         catch (Exception ex)
         {
-            LambdaLogger.Log($"An unexpected error occured {ex.Message}");
+            context.Logger.LogError($"An unexpected error occured {ex}");
         }
-
     }
 }
