@@ -16,7 +16,7 @@ public class Function
     }
     
     /// <summary>
-    /// A simple function that takes a string and does a ToUpper
+    /// A function that takes number of events, based on which generates events and sents the to Kinesis
     /// </summary>
     /// <param name="input"></param>
     /// <param name="context"></param>

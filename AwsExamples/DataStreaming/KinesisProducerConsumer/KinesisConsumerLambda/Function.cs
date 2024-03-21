@@ -38,10 +38,12 @@ public class Function
             catch (Exception ex)
             {
                 context.Logger.LogError($"An error occured for event {record.EventId}: {ex}.");
-            }  
+            }
         }
 
-        context.Logger.LogInformation("Stream processing complete.");
+        context.Logger.LogInformation($"Stream processing complete.");
+        context.Logger.LogInformation(JsonConvert.SerializeObject(new { KinesisConsumedEvents = events.Count }));
+       
     }
 
     private string GetRecordContents(KinesisEvent.Record streamRecord)
