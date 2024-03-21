@@ -33,8 +33,10 @@ namespace KinesisProducerLambda
             {
                 var events = GenerateEvents(numberOfEvents);
                 var putRecordsRequestsBatches = SplitEventsIntoBatches(events);
-                    
+
+                LambdaLogger.Log($"Started sending data");
                 putRecordsResponses = await Task.WhenAll(putRecordsRequestsBatches.Select(x => SendBatchToKinesis(x)));
+                LambdaLogger.Log($"Completed sending data");
             }
             catch (Exception ex)
             {
@@ -44,26 +46,30 @@ namespace KinesisProducerLambda
             CheckForFailedRecords(putRecordsResponses);
         }
 
-        private static List<UpdateProfileEvent> GenerateEvents(int numberOfEvents)
+        private static List<DeviceUsage> GenerateEvents(int numberOfEvents)
         {
             Random random = new();
-            var events = new List<UpdateProfileEvent>();
+            var events = new List<DeviceUsage>();
             for (int i = 0; i < numberOfEvents; i++)
             {
-                events.Add(new UpdateProfileEvent
+                events.Add(new DeviceUsage
                 {
                     Id = Guid.NewGuid().ToString(),
                     Timestamp = DateTime.UtcNow,
-                    ProfileId = Guid.NewGuid().ToString(),
-                    UpdateType = "Username",
-                    NewValue = $"user{random.Next()}"
+                    DeviceId = $"device_{random.Next(0, 100)}",
+                    CPUUtilization = random.Next(0, 100),
+                    MemoryUtilization = random.Next(0, 100),
+                    BatteryLevel = random.Next(0, 100),
+                    Errors = Enumerable.Range(0, random.Next(0, 100))
+            .Select(_ => $"An unexpected error occurred with code {random.Next(0, 10)}")
+            .ToList()
                 });
             }
 
             return events;
         }
 
-        private static List<List<PutRecordsRequestEntry>> SplitEventsIntoBatches(List<UpdateProfileEvent> events)
+        private static List<List<PutRecordsRequestEntry>> SplitEventsIntoBatches(List<DeviceUsage> events)
         {
             int currentBatchSizeBytes = 0;
             var recordsBatch = new List<List<PutRecordsRequestEntry>>();
@@ -76,7 +82,7 @@ namespace KinesisProducerLambda
 
                     int eventDataSizeBytes = eventDataBytes.Length;
 
-                    var isBatchRequestLimitReached = currentBatchSizeBytes + eventDataSizeBytes > maxBatchSizeBytes || recordsBatch.Count >= maxRecordsPerBatch;
+                    var isBatchRequestLimitReached = currentBatchSizeBytes + eventDataSizeBytes > maxBatchSizeBytes || recordBatch.Count >= maxRecordsPerBatch;
                     if (isBatchRequestLimitReached)
                     {
                         recordsBatch.Add(recordBatch);
