@@ -21,7 +21,9 @@ namespace ProducerOrchestratorLambda
 
         public async Task OrchestrateKineisProducers(int numberOfProducers, int numberOfEvents)
         {
-            var maxNumberOfProducers = numberOfProducers > maxConcurrentProducers ? maxConcurrentProducers : numberOfEvents;
+            var maxNumberOfProducers = numberOfProducers > maxConcurrentProducers ? maxConcurrentProducers : numberOfProducers;
+
+            LambdaLogger.Log($"Starting: {maxNumberOfProducers} producers");
 
             var InvokeResponseTasks = new List<Task<InvokeResponse>>();
             for (int i = 0; i < maxNumberOfProducers; i++)

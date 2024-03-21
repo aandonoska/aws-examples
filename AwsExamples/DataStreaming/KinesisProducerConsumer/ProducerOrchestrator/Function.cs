@@ -25,13 +25,27 @@ public class Function
     public async Task FunctionHandler(ProducerOrchestratorRequest request, ILambdaContext context)
     {
         context.Logger.LogInformation($"Invoked with number of producers {request.NumberOfProducers} number of events {request.NumberOfEvents}");
-        try
+        long startTime = DateTimeOffset.Now.ToUnixTimeMilliseconds();
+        int i = 0;
+        while (true)
         {
-            await _orchestrationService.OrchestrateKineisProducers(request.NumberOfProducers, request.NumberOfEvents);
-        }
-        catch (Exception ex)
-        {
-            context.Logger.LogError($"An unexpected error occured {ex}");
+            long currentTime = DateTimeOffset.Now.ToUnixTimeMilliseconds();
+            if (currentTime - startTime >= request.MilisecondsToRun)
+            {
+                break;
+            }
+            try
+            {
+                await _orchestrationService.OrchestrateKineisProducers(request.NumberOfProducers, request.NumberOfEvents);
+                i++;
+                await Task.Delay(4000);
+            }
+            catch (Exception ex)
+            {
+                context.Logger.LogError($"An unexpected error occured {ex}");
+            }
+
+            context.Logger.LogInformation($"Number of iterations {i}");
         }
     }
 }

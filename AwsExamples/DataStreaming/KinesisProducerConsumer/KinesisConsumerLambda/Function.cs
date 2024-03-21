@@ -18,13 +18,13 @@ public class Function
 
         var shouldLogEvents = Environment.GetEnvironmentVariable("LogEventContent") == true.ToString();
 
-        List<UpdateProfileEvent> events = new List<UpdateProfileEvent>();
+        List<DeviceUsage> events = new List<DeviceUsage>();
         foreach (var record in kinesisEvent.Records)
         {
             try
             {
                 string recordData = GetRecordContents(record.Kinesis);
-                var evnt = JsonConvert.DeserializeObject<UpdateProfileEvent>(recordData);
+                var evnt = JsonConvert.DeserializeObject<DeviceUsage>(recordData);
                 if (evnt != null)
                 {
                     events.Add(evnt);
@@ -41,7 +41,7 @@ public class Function
             }
         }
 
-        context.Logger.LogInformation($"Stream processing complete.");
+        context.Logger.Log($"Completed consuming data");
         context.Logger.LogInformation(JsonConvert.SerializeObject(new { KinesisConsumedEvents = events.Count }));
        
     }
